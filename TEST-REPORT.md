@@ -48,3 +48,5 @@ Moderation: clean text passes; emails removed; phones in 4 formats removed; shor
 **Please try once on your iPhone and Android:** open the Flow 1 link, tap "Speak your answer", allow the microphone, say a sentence, check the words appear, stop, play it back, finish. Then the same on Flow 2.
 
 ## Live site
+
+Deployed with GitHub Actions on Oct 27, 2026. The workflow's test and deploy jobs both passed. https://dane-alt.github.io/kindness-project/, `?f=1`, `?f=2`, `?code=KB-7Q3M` and the QR card images all return HTTP 200. The full end-to-end suite was re-run against the live site: **20 / 20 passed** on iPhone 13 (WebKit) and Pixel 7 (Chromium).
