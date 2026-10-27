@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "serve": "node scripts/serve.mjs",
-    "test": "node --test tests/unit/",
+    "test": "node --test tests/unit/*.mjs",
     "e2e": "playwright test",
     "codes": "node scripts/gen-codes.mjs",
     "qr": "node scripts/gen-qr.mjs",
