@@ -1,0 +1,10 @@
+import test from 'node:test'; import assert from 'node:assert/strict';
+import { moderate, decideStatus } from '../../js/moderation.js';
+test('clean text passes', () => { const r = moderate('A stranger helped me carry groceries up the hill.'); assert.equal(r.ok, true); assert.deepEqual(r.flags, []); });
+test('email removed and flagged', () => { const r = moderate('write me at jane.doe@example.com ok'); assert.ok(r.flags.includes('email')); assert.ok(!r.text.includes('@example')); assert.match(r.text, /\[email removed\]/); });
+test('repeated calls stay consistent (regex state)', () => { for (let i = 0; i < 3; i++) assert.ok(moderate('a@b.co').flags.includes('email')); });
+test('phone numbers removed', () => { for (const p of ['(415) 488-3874', '+1 415 488 3874', '415.488.3874', '4154883874']) { const r = moderate('call ' + p + ' please'); assert.ok(r.flags.includes('phone'), p); assert.ok(!/\d{3}/.test(r.text), r.text); } });
+test('short numbers are fine', () => { assert.deepEqual(moderate('I was 7 and it was 2019').flags, []); });
+test('name patterns flagged', () => { for (const t of ['My name is Sarah', 'Mrs. Johnson baked bread', 'follow @kindguy']) assert.ok(moderate(t).flags.includes('name'), t); });
+test('abusive text flagged', () => { assert.ok(moderate('what the fuck').flags.includes('abusive')); assert.ok(moderate('Shitty day').flags.includes('abusive')); assert.deepEqual(moderate('Scunthorpe class').flags, []); });
+test('status decision', () => { assert.equal(decideStatus([], true), 'approved'); assert.equal(decideStatus([], false), 'pending'); assert.equal(decideStatus(['email'], true), 'pending'); });
