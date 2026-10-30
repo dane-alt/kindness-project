@@ -1,9 +1,9 @@
-import { CONFIG, isDemo } from './config.js';
-import { backend, blobToDataURL } from './backend.js';
-import { Recorder, canRecord, canTranscribe } from './recorder.js';
-import { normalizeCode, isValidCode, generateCodes } from './codes.js';
-import { toCSV, toJSON } from './export.js';
-import { STORIES, RESEARCH } from './content.js';
+import { CONFIG, isDemo } from './config.js?v=3';
+import { backend, blobToDataURL } from './backend.js?v=3';
+import { Recorder, canRecord, canTranscribe } from './recorder.js?v=3';
+import { normalizeCode, isValidCode, generateCodes } from './codes.js?v=3';
+import { toCSV, toJSON } from './export.js?v=3';
+import { STORIES, RESEARCH } from './content.js?v=3';
 
 const $ = (s, r = document) => r.querySelector(s);
 const main = $('#main');
@@ -19,43 +19,39 @@ async function refreshTally() {}
 function view(html, title) { main.innerHTML = html; document.title = 'Kindness'; main.focus(); window.scrollTo(0, 0); }
 
 // ---------- answer widget (type, speak, or speak-to-text) ----------
+const PERMIT = 'I give permission for my anonymous story to be shared to inspire others as part of the Kindness Project.';
 function answerBox(id, label) {
-  const rec = canRecord();
-  return `<textarea id="${id}" name="${id}" maxlength="4000" aria-label="${label}" placeholder="Type here, or tap Speak."></textarea>
-  ${rec ? `<div class="voice"><button type="button" class="btn alt rec" data-rec="${id}" aria-pressed="false">🎙️ Speak</button>
-  <span class="hint" data-status="${id}" aria-live="polite"></span></div>
-  <div data-audio="${id}" hidden><audio controls></audio>
-  <fieldset class="vchoice"><legend>Keep it as</legend>
-  <label><input type="radio" name="keep-${id}" value="voice" data-keep="${id}" checked> A voice message</label>
-  <label><input type="radio" name="keep-${id}" value="text"> Text</label></fieldset></div>` : ''}`;
+  return `<p class="byvoice">Share your story by voice or by text.</p>
+  ${canRecord() ? `<div class="voice"><button type="button" class="btn alt rec" data-rec="${id}" aria-pressed="false">🎙️ Record</button>
+  <span class="hint" data-status="${id}" aria-live="polite"></span>
+  <audio controls data-audio="${id}" hidden></audio></div>` : ''}
+  <textarea id="${id}" name="${id}" maxlength="4000" aria-label="${label}" placeholder="Or type your story here"></textarea>
+  <label class="consent"><input type="checkbox" id="consent"> <span>${PERMIT}</span></label>`;
 }
 const answers = {};
+main.addEventListener('change', e => { if (e.target.id === 'consent') { const m = $('#msg'); if (m) m.textContent = ''; } });
 function wireAnswer(id) {
-  answers[id] = { blob: null, transcribed: false };
+  answers[id] = { blob: null };
   const btn = $(`[data-rec="${id}"]`); if (!btn) return;
-  const ta = $('#' + id), st = $(`[data-status="${id}"]`);
-  let r = null, base = '';
+  const st = $(`[data-status="${id}"]`), au = $(`[data-audio="${id}"]`);
+  let r = null;
   btn.onclick = async () => {
     if (!r) {
-      base = ta.value ? ta.value.trim() + ' ' : '';
-      r = new Recorder({ onTranscript: t => { ta.value = base + t; answers[id].transcribed = true; } });
-      try { await r.start(); } catch (e) { r = null; st.textContent = 'Microphone not allowed. You can type instead, or allow the microphone in your browser settings.'; st.classList.add('err'); return; }
-      btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true'); btn.textContent = '⏹ Stop recording'; st.classList.remove('err'); st.textContent = 'Listening…';
+      r = new Recorder({});
+      try { await r.start(); } catch { r = null; st.textContent = 'Please allow the microphone, or type instead.'; return; }
+      btn.classList.add('on'); btn.setAttribute('aria-pressed', 'true'); btn.textContent = '⏹ Stop'; st.textContent = '';
     } else {
-      const blob = await r.stop(); r = null;
-      answers[id].blob = blob;
+      const blob = await r.stop(); r = null; answers[id].blob = blob;
       btn.classList.remove('on'); btn.setAttribute('aria-pressed', 'false'); btn.textContent = '🎙️ Record again';
-      st.textContent = answers[id].transcribed ? 'Done. Check the text above and fix anything.' : 'Recording saved. You can add text too.';
-      const box = $(`[data-audio="${id}"]`); box.hidden = false; $('audio', box).src = URL.createObjectURL(blob);
+      au.hidden = false; au.src = URL.createObjectURL(blob);
     }
   };
 }
 async function collect(id, flow, consent) {
-  const text = $('#' + id).value.trim(), a = answers[id] || {};
-  const keep = a.blob && $(`[data-keep="${id}"]`)?.checked;
-  if (!text && !keep) return null;
-  const mode = keep ? (text ? 'audio+transcript' : 'audio') : 'text';
-  return { flow, text, input_mode: mode, consent, audio_blob: keep ? a.blob : null, audio_data: keep && isDemo() ? await blobToDataURL(a.blob) : null };
+  const text = $('#' + id).value.trim(), blob = (answers[id] || {}).blob;
+  if (!text && !blob) return null;
+  const mode = blob ? (text ? 'audio+transcript' : 'audio') : 'text';
+  return { flow, text, input_mode: mode, consent, audio_blob: blob || null, audio_data: blob && isDemo() ? await blobToDataURL(blob) : null };
 }
 
 function feedList(items, empty = 'No entries yet. Yours could be the first.') {
@@ -111,7 +107,8 @@ function journey(step = 1) {
     wireAnswer(id);
     $('#f').onsubmit = async e => {
       e.preventDefault();
-      if (!$('#' + id).value.trim() && !answers[id]?.blob) { $('#msg').textContent = 'Please type or speak an answer first.'; return; }
+      if (!$('#' + id).value.trim() && !answers[id]?.blob) { $('#msg').textContent = 'Please record or type your story first.'; return; }
+      if (!$('#consent').checked) { $('#msg').textContent = 'Please tick the box to share.'; return; }
       $('#submit').disabled = true;
       try { const it = await collect(id, flow, true); await backend.submit([it]); markShared('flow1'); location.hash = step === 1 ? '#journey2' : '#journey3'; }
       catch { $('#submit').disabled = false; $('#msg').textContent = 'Sorry, that didn\'t send. Please try again.'; }
@@ -128,6 +125,7 @@ function journey(step = 1) {
   $('#f').onsubmit = async e => {
     e.preventDefault();
     const has = $('#j3').value.trim() || answers.j3?.blob;
+    if (has && !$('#consent').checked) { $('#msg').textContent = 'Please tick the box to share.'; return; }
     $('#submit').disabled = true;
     try { if (has) { const it = await collect('j3', 'inspired', true); await backend.submit([it]); } location.hash = '#gift'; }
     catch { $('#submit').disabled = false; $('#msg').textContent = 'Sorry, that didn\'t send. Please try again.'; }

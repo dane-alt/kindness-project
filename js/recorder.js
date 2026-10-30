@@ -19,7 +19,7 @@ export class Recorder {
     this.done = new Promise(res => { this.mr.onstop = () => { this.blob = new Blob(this.chunks, { type: this.mr.mimeType || mime || 'audio/mp4' }); res(this.blob); }; });
     this.mr.start(1000);
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SR) {
+    if (SR && this.onTranscript) {
       try {
         this.sr = new SR(); this.sr.continuous = true; this.sr.interimResults = true; this.sr.lang = navigator.language || 'en-US';
         let finalText = '';
