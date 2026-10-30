@@ -14,23 +14,20 @@ const markShared = f => localStorage.setItem(SHARED, JSON.stringify({ ...shared(
 const siteUrl = () => CONFIG.SITE_URL || location.href.split('#')[0];
 const CONSENT = 'I understand my answers will be public (without my name) and may appear in the book <em>Kindness</em> by Dane E. Rose.';
 
-if (isDemo()) $('#demo-banner').hidden = false;
-async function refreshTally() { try { $('#tally').textContent = await backend.tally(); } catch {} }
+async function refreshTally() {}
 
-function view(html, title) { main.innerHTML = html; document.title = (title ? title + ' · ' : '') + 'The Kindness Project'; main.focus(); window.scrollTo(0, 0); }
+function view(html, title) { main.innerHTML = html; document.title = 'Kindness'; main.focus(); window.scrollTo(0, 0); }
 
 // ---------- answer widget (type, speak, or speak-to-text) ----------
 function answerBox(id, label) {
   const rec = canRecord();
-  return `<label for="${id}">${label}</label>
-  <textarea id="${id}" name="${id}" maxlength="4000" placeholder="Type here, or tap Speak and talk."></textarea>
-  ${rec ? `<div class="voice"><button type="button" class="btn alt rec" data-rec="${id}" aria-pressed="false">🎙️ Speak instead of typing</button>
-  <span class="hint" data-status="${id}" aria-live="polite">${canTranscribe() ? 'Your words will appear as text as you speak.' : 'Your voice will be recorded. You can also type.'}</span></div>
+  return `<textarea id="${id}" name="${id}" maxlength="4000" aria-label="${label}" placeholder="Type here, or tap Speak."></textarea>
+  ${rec ? `<div class="voice"><button type="button" class="btn alt rec" data-rec="${id}" aria-pressed="false">🎙️ Speak</button>
+  <span class="hint" data-status="${id}" aria-live="polite"></span></div>
   <div data-audio="${id}" hidden><audio controls></audio>
-  <fieldset class="vchoice"><legend>How should we share it?</legend>
-  <label><input type="radio" name="keep-${id}" value="voice" data-keep="${id}" checked> As a voice message (with the words written out too)</label>
-  <label><input type="radio" name="keep-${id}" value="text"> As text only (your voice is not kept)</label></fieldset></div>`
-  : `<p class="hint">Voice recording isn't available in this browser, so please type.</p>`}`;
+  <fieldset class="vchoice"><legend>Keep it as</legend>
+  <label><input type="radio" name="keep-${id}" value="voice" data-keep="${id}" checked> A voice message</label>
+  <label><input type="radio" name="keep-${id}" value="text"> Text</label></fieldset></div>` : ''}`;
 }
 const answers = {};
 function wireAnswer(id) {
@@ -92,14 +89,7 @@ function showNote(host, x, y) {
   host.appendChild(n); setTimeout(() => n.remove(), 3300);
 }
 function home() {
-  view(`<section class="jungle" id="jungle"><div class="scene" id="scene"></div>
-  <div class="copy"><h1>Someone made your day.<br>Pass it on.</h1>
-  <p>Three small questions about kindness. Anonymous, two minutes, and good for you.</p>
-  <a class="journey-btn" href="#journey">Take the kindness journey</a>
-  <p class="hint-tap">Psst. Tap a bird.</p></div></section>
-  <div class="leaf-links"><a href="#stories">${STORIES.length} true stories</a><a href="#research">Kindness experiments</a><a href="#feed">What others shared</a></div>`);
-  const j = $('#jungle'); sparkleScene($('#scene'));
-  j.addEventListener('click', e => { if (!e.target.closest('a,button')) showNote(j, e.clientX, e.clientY); });
+  view(`<section class="home"><a class="journey-btn" href="#journey">Take the kindness journey</a></section>`);
 }
 
 const LEAF = `<svg class="leafy" viewBox="0 0 64 64" aria-hidden="true"><path d="M10 54C10 26 30 10 56 8c-2 26-18 46-46 46z" fill="#2f9e5f"/><path d="M12 52C24 40 36 28 50 14" stroke="#e8f3e2" stroke-width="2.5" fill="none" stroke-linecap="round"/><circle cx="50" cy="48" r="5" fill="#ff6f61"/><circle cx="40" cy="56" r="3.5" fill="#ffc94a"/></svg>`;
@@ -111,83 +101,53 @@ const IDEAS = [
   { title: 'Send an appreciation', sub: 'A text or email to someone you really appreciate', href: '#appreciate',
     art: '<img src="img/tile-thanks.jpg" alt="Birds carrying thank-you notes from a phone" loading="lazy">' },
 ];
-const journeyStash = {};
 function journey(step = 1) {
-  if (step === 1) {
-    view(`<div class="journey"><p class="step">The kindness journey · 1 of 3</p>${LEAF}<h1 class="q">What is the kindest thing anyone has done for you?</h1>
-    <form id="f" novalidate>${answerBox('j1', 'Your answer')}
-    <label class="consent"><input type="checkbox" id="consent"> <span>${CONSENT}</span></label>
-    <p class="hint">Please leave out names, phone numbers and emails.</p><p class="err" id="msg" role="alert"></p>
-    <div class="row"><button class="btn" type="submit" id="submit">Submit</button></div></form></div>`, 'The kindness journey');
-    wireAnswer('j1');
+  if (step < 3) {
+    const id = 'j' + step, flow = step === 1 ? 'received' : 'given';
+    const q = step === 1 ? 'What is the kindest thing anyone has done for you?' : 'What is one thing you have done for yourself or others just to be kind?';
+    view(`<div class="journey"><h1 class="q">${q}</h1>
+    <form id="f" novalidate>${answerBox(id, q)}<p class="err" id="msg" role="alert"></p>
+    <div class="row"><button class="btn" type="submit" id="submit">Submit</button></div></form></div>`);
+    wireAnswer(id);
     $('#f').onsubmit = async e => {
       e.preventDefault();
-      if (!$('#j1').value.trim() && !answers.j1?.blob) { $('#msg').textContent = 'Please type or record an answer first.'; return; }
-      if (!$('#consent').checked) { $('#msg').textContent = 'Please tick the box to agree before sharing.'; return; }
+      if (!$('#' + id).value.trim() && !answers[id]?.blob) { $('#msg').textContent = 'Please type or speak an answer first.'; return; }
       $('#submit').disabled = true;
-      try { const it = await collect('j1', 'received', true); await backend.submit([it]); journeyStash.consent = true; markShared('flow1'); refreshTally(); location.hash = '#journey2'; }
+      try { const it = await collect(id, flow, true); await backend.submit([it]); markShared('flow1'); location.hash = step === 1 ? '#journey2' : '#journey3'; }
       catch { $('#submit').disabled = false; $('#msg').textContent = 'Sorry, that didn\'t send. Please try again.'; }
     };
     return;
   }
-  if (step === 2) {
-    view(`<div class="journey"><p class="step">The kindness journey · 2 of 3</p>${LEAF}<h1 class="q">What is one thing you have done for yourself or others just to be kind?</h1>
-    <form id="f" novalidate>${answerBox('j2', 'Your answer')}
-    ${journeyStash.consent ? '' : `<label class="consent"><input type="checkbox" id="consent"> <span>${CONSENT}</span></label>`}
-    <p class="err" id="msg" role="alert"></p>
-    <div class="row"><button class="btn" type="submit" id="submit">Submit</button></div></form></div>`, 'The kindness journey');
-    wireAnswer('j2');
-    $('#f').onsubmit = async e => {
-      e.preventDefault();
-      if (!$('#j2').value.trim() && !answers.j2?.blob) { $('#msg').textContent = 'Please type or record an answer first.'; return; }
-      if (!journeyStash.consent && !$('#consent')?.checked) { $('#msg').textContent = 'Please tick the box to agree before sharing.'; return; }
-      $('#submit').disabled = true;
-      try { const it = await collect('j2', 'given', true); await backend.submit([it]); markShared('flow1'); refreshTally(); location.hash = '#journey3'; }
-      catch { $('#submit').disabled = false; $('#msg').textContent = 'Sorry, that didn\'t send. Please try again.'; }
-    };
-    return;
-  }
-  view(`<div class="journey thanks"><p class="step">The kindness journey · 3 of 3</p>
-  <h1>Thank you so much for participating in the Kindness Project.</h1>
+  view(`<div class="journey"><h1>Thank you so much for participating in the Kindness Project.</h1>
   <h2 class="q">Is there anything big or small that has the energy of kindness around it that you could do right now?</h2>
   <p class="lead">Do you need ideas?</p>
-  <div class="ideas">${IDEAS.map(i => `<a class="idea" href="${i.href}" ${i.href.startsWith('http') ? 'target="_blank" rel="noopener"' : ''}>${i.art}<span>${i.title}<small>${i.sub}</small></span></a>`).join('')}</div>
-  <form id="f" novalidate>${answerBox('j3', 'What you could do right now')}
-  ${journeyStash.consent ? '' : `<label class="consent"><input type="checkbox" id="consent"> <span>${CONSENT}</span></label>`}
-  <p class="err" id="msg" role="alert"></p>
-  <div class="row"><button class="btn" type="submit" id="submit">Submit</button></div></form></div>`, 'The kindness journey');
+  <div class="ideas">${IDEAS.map(i => `<a class="idea" href="${i.href}" ${i.href.startsWith('http') ? 'target="_blank" rel="noopener"' : ''}>${i.art}<span>${i.title}</span></a>`).join('')}</div>
+  <form id="f" novalidate>${answerBox('j3', 'What you could do right now')}<p class="err" id="msg" role="alert"></p>
+  <div class="row"><button class="btn" type="submit" id="submit">Submit</button></div></form></div>`);
   wireAnswer('j3');
   $('#f').onsubmit = async e => {
     e.preventDefault();
     const has = $('#j3').value.trim() || answers.j3?.blob;
-    if (has && !journeyStash.consent && !$('#consent')?.checked) { $('#msg').textContent = 'Please tick the box to agree before sharing.'; return; }
     $('#submit').disabled = true;
-    try { if (has) { const it = await collect('j3', 'inspired', true); await backend.submit([it]); markShared('flow1'); refreshTally(); } location.hash = '#gift'; }
+    try { if (has) { const it = await collect('j3', 'inspired', true); await backend.submit([it]); } location.hash = '#gift'; }
     catch { $('#submit').disabled = false; $('#msg').textContent = 'Sorry, that didn\'t send. Please try again.'; }
   };
 }
 
 function gift() {
-  view(`<div class="journey thanks"><section class="gift">
-  <h2>A book on kindness</h2>
-  <p class="gift-lead">Please receive. Please enjoy.</p>
-  <img class="book3d" src="img/book-3d.jpg" alt="The book Kindness by Dane E. Rose">
+  view(`<div class="journey gift"><h1>A book on kindness</h1>
+  <img class="book3d" src="img/book-3d.png" alt="The book Kindness by Dane E. Rose">
   <p>This book and audiobook are not available for sale anywhere. They are a gift.</p>
-  <p>In it you can enjoy beautiful stories of kindness from around the world and some of the best science on kindness.</p>
   <p>If you would like to receive the book, please enter your email address below. Your email address will be used only for the Kindness Project and never shared with anyone else. Your book and audiobook will arrive within 30 days.</p>
-  <form id="bf" novalidate><label for="bem">Your email address</label><input type="email" id="bem" autocomplete="email" inputmode="email" placeholder="you@example.com">
+  <form id="bf" novalidate><input type="email" id="bem" autocomplete="email" inputmode="email" aria-label="Your email address" placeholder="Your email address">
   <p class="err" id="bmsg" role="alert"></p>
-  <div class="row"><button class="btn" type="submit" id="bsub">Send me the book</button></div></form>
-  <div class="stack"><a class="btn alt" href="#stories">Read the stories online</a><a class="btn alt" href="#share">Share the project with others</a></div>
-  <p class="blessing">Every kind act blesses our entire planet and all of humanity.</p>
-  </section></div>`, 'A book on kindness');
-  setTimeout(confetti, 60);
+  <div class="row"><button class="btn" type="submit" id="bsub">Submit</button></div></form></div>`);
   $('#bf').onsubmit = async e => {
     e.preventDefault();
     const em = $('#bem').value.trim();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { $('#bmsg').textContent = 'Please enter a valid email address.'; return; }
     $('#bsub').disabled = true;
-    try { await backend.requestBook(em); $('#bf').outerHTML = '<p class="gift-lead">Thank you. Your book and audiobook will arrive within 30 days.</p>'; }
+    try { await backend.requestBook(em); $('#bf').outerHTML = '<p class="done">Thank you. Your book and audiobook will arrive within 30 days.</p>'; }
     catch { $('#bsub').disabled = false; $('#bmsg').textContent = 'Sorry, that didn\'t send. Please try again.'; }
   };
 }
@@ -387,4 +347,4 @@ async function route() {
   ({ '': home, journey: () => journey(1), journey2: () => journey(2), journey3: () => journey(3), gift, appreciate, stories: () => stories(), research, flow1: () => flow1(1), flow2, thanks1: () => thanks(1), thanks2: () => thanks(2), share, feed: feedPage, book: () => book(arg), admin }[p] || home)();
 }
 window.addEventListener('hashchange', route);
-route(); refreshTally();
+route();
