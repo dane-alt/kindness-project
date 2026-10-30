@@ -152,16 +152,44 @@ function journey(step = 1) {
   <h2 class="q">Is there anything big or small that has the energy of kindness around it that you could do right now?</h2>
   <p class="lead">Do you need ideas?</p>
   <div class="ideas">${IDEAS.map(i => `<a class="idea" href="${i.href}" ${i.href.startsWith('http') ? 'target="_blank" rel="noopener"' : ''}>${i.art}<span>${i.title}<small>${i.sub}</small></span></a>`).join('')}</div>
-  <section class="gift">
-  <h2>Thank you for participating in the Kindness Project.</h2>
+  <form id="f" novalidate>${answerBox('j3', 'What you could do right now')}
+  ${journeyStash.consent ? '' : `<label class="consent"><input type="checkbox" id="consent"> <span>${CONSENT}</span></label>`}
+  <p class="err" id="msg" role="alert"></p>
+  <div class="row"><button class="btn" type="submit" id="submit">Submit</button></div></form></div>`, 'The kindness journey');
+  wireAnswer('j3');
+  $('#f').onsubmit = async e => {
+    e.preventDefault();
+    const has = $('#j3').value.trim() || answers.j3?.blob;
+    if (has && !journeyStash.consent && !$('#consent')?.checked) { $('#msg').textContent = 'Please tick the box to agree before sharing.'; return; }
+    $('#submit').disabled = true;
+    try { if (has) { const it = await collect('j3', 'inspired', true); await backend.submit([it]); markShared('flow1'); refreshTally(); } location.hash = '#gift'; }
+    catch { $('#submit').disabled = false; $('#msg').textContent = 'Sorry, that didn\'t send. Please try again.'; }
+  };
+}
+
+function gift() {
+  view(`<div class="journey thanks"><section class="gift">
+  <h2>A book on kindness</h2>
   <p class="gift-lead">Please receive. Please enjoy.</p>
-  ${CONFIG.BOOK_PDF_URL ? `<a href="${esc(CONFIG.BOOK_PDF_URL)}" target="_blank" rel="noopener" aria-label="Download the book Kindness (PDF)">` : `<a href="#stories" aria-label="Read the stories online">`}<img class="book3d" src="img/book-3d.jpg" alt="The book Kindness by Dane E. Rose"></a>
-  <p>A book that is only available to give. You cannot buy this book anywhere. It is only available with kindness.</p>
-  <p>In it you can enjoy beautiful stories of kindness from around the world and some of the best science on kindness. Be inspired by the kind acts that have changed the world, particularly small kind acts that have enormous impact.</p>
-  <div class="stack">${CONFIG.BOOK_PDF_URL ? `<a class="btn" href="${esc(CONFIG.BOOK_PDF_URL)}" target="_blank" rel="noopener">Download the book (PDF)</a>` : ''}<a class="btn ${CONFIG.BOOK_PDF_URL ? 'alt' : ''}" href="#stories">Read the stories online</a><a class="btn alt" href="#share">Share the project with others</a></div>
+  <img class="book3d" src="img/book-3d.jpg" alt="The book Kindness by Dane E. Rose">
+  <p>This book and audiobook are not available for sale anywhere. They are a gift.</p>
+  <p>In it you can enjoy beautiful stories of kindness from around the world and some of the best science on kindness.</p>
+  <p>If you would like to receive the book, please enter your email address below. Your email address will be used only for the Kindness Project and never shared with anyone else. Your book and audiobook will arrive within 30 days.</p>
+  <form id="bf" novalidate><label for="bem">Your email address</label><input type="email" id="bem" autocomplete="email" inputmode="email" placeholder="you@example.com">
+  <p class="err" id="bmsg" role="alert"></p>
+  <div class="row"><button class="btn" type="submit" id="bsub">Send me the book</button></div></form>
+  <div class="stack"><a class="btn alt" href="#stories">Read the stories online</a><a class="btn alt" href="#share">Share the project with others</a></div>
   <p class="blessing">Every kind act blesses our entire planet and all of humanity.</p>
-  </section></div>`, 'Thank you');
+  </section></div>`, 'A book on kindness');
   setTimeout(confetti, 60);
+  $('#bf').onsubmit = async e => {
+    e.preventDefault();
+    const em = $('#bem').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { $('#bmsg').textContent = 'Please enter a valid email address.'; return; }
+    $('#bsub').disabled = true;
+    try { await backend.requestBook(em); $('#bf').outerHTML = '<p class="gift-lead">Thank you. Your book and audiobook will arrive within 30 days.</p>'; }
+    catch { $('#bsub').disabled = false; $('#bmsg').textContent = 'Sorry, that didn\'t send. Please try again.'; }
+  };
 }
 
 function appreciate() {
@@ -334,6 +362,8 @@ async function admin() {
   <div class="card"><h2>Settings</h2><label class="consent"><input type="checkbox" id="auto" ${d.settings.auto_approve_clean ? 'checked' : ''}> Publish clean entries right away (flagged ones always wait for you)</label></div>
   <div class="card"><h2>Export approved entries</h2><p class="hint">${d.entries.filter(e => e.status === 'approved').length} approved, with consent flag.</p>
   <div class="row"><button class="btn" id="csv">Download CSV</button><button class="btn alt" id="json">Download JSON</button></div></div>
+  <div class="card"><h2>Book requests (${(d.requests || []).length})</h2><p class="hint">Emails from people who asked for the book and audiobook.</p>
+  <div class="row"><button class="btn alt" id="reqcsv">Download emails (CSV)</button></div></div>
   <div class="card"><h2>Book codes</h2><label for="n">Make new codes for a print run</label><input type="text" id="n" inputmode="numeric" value="50">
   <div class="row"><button class="btn alt" id="gen">Create &amp; download codes</button></div></div>
   <div class="card"><h2>All approved (${d.entries.filter(e => e.status === 'approved').length})</h2>${feedList(d.entries.filter(e => e.status === 'approved'))}</div>`, 'Admin');
@@ -342,6 +372,7 @@ async function admin() {
   const stamp = new Date().toISOString().slice(0, 10);
   $('#csv').onclick = () => download(`kindness-approved-${stamp}.csv`, toCSV(d.entries), 'text/csv');
   $('#json').onclick = () => download(`kindness-approved-${stamp}.json`, toJSON(d.entries), 'application/json');
+  $('#reqcsv').onclick = () => download(`kindness-book-requests-${stamp}.csv`, 'email,requested_at\r\n' + (d.requests || []).map(r => `${r.email},${r.created_at}`).join('\r\n') + '\r\n', 'text/csv');
   $('#gen').onclick = async () => { const n = Math.min(5000, Math.max(1, parseInt($('#n').value, 10) || 0)); const codes = generateCodes(n); await backend.addCodes(codes); download(`book-codes-${stamp}.csv`, 'code\r\n' + codes.join('\r\n') + '\r\n', 'text/csv'); };
 }
 
@@ -353,7 +384,7 @@ async function route() {
   const q = new URLSearchParams(location.search);
   if (!h && q.get('f')) { location.replace(q.get('f') === '2' ? '#flow2' : '#journey'); return; }
   if (!h && q.get('code')) { location.replace('#book/' + q.get('code')); return; }
-  ({ '': home, journey: () => journey(1), journey2: () => journey(2), journey3: () => journey(3), appreciate, stories: () => stories(), research, flow1: () => flow1(1), flow2, thanks1: () => thanks(1), thanks2: () => thanks(2), share, feed: feedPage, book: () => book(arg), admin }[p] || home)();
+  ({ '': home, journey: () => journey(1), journey2: () => journey(2), journey3: () => journey(3), gift, appreciate, stories: () => stories(), research, flow1: () => flow1(1), flow2, thanks1: () => thanks(1), thanks2: () => thanks(2), share, feed: feedPage, book: () => book(arg), admin }[p] || home)();
 }
 window.addEventListener('hashchange', route);
 route(); refreshTally();

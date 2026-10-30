@@ -17,7 +17,7 @@ function seed() {
       e('given', 'I sat with a neighbor at the hospital so she would not be alone.', 280),
       e('inspired', 'After reading a card, I wrote a thank-you note to my old teacher.', 120),
     ],
-    codes: DEMO_CODES.slice(), logs: [], settings: { auto_approve_clean: CONFIG.AUTO_APPROVE_CLEAN },
+    codes: DEMO_CODES.slice(), logs: [], requests: [], settings: { auto_approve_clean: CONFIG.AUTO_APPROVE_CLEAN },
   };
 }
 const load = () => { try { return JSON.parse(localStorage.getItem(LS)) || seed(); } catch { return seed(); } };
@@ -34,6 +34,7 @@ const demo = {
     }
     save(d);
   },
+  async requestBook(email) { const d = load(); (d.requests ||= []).push({ email, created_at: new Date().toISOString() }); save(d); },
   async feed(flows) { return load().entries.filter(e => e.status === 'approved' && flows.includes(e.flow)).sort((a, b) => b.created_at.localeCompare(a.created_at)); },
   async tally() { const d = load(); return d.entries.filter(e => e.status === 'approved').length + d.logs.filter(l => l.status === 'approved').length; },
   async checkCode(code) { return load().codes.includes(code); },
@@ -47,7 +48,7 @@ const demo = {
   async bookTrail(code) { return load().logs.filter(l => l.code === code && l.status === 'approved'); },
   // admin
   async login(email, password) { if (password !== 'demo') throw new Error('Demo admin password is "demo"'); return true; },
-  async adminAll() { const d = load(); return { entries: d.entries, logs: d.logs, settings: d.settings }; },
+  async adminAll() { const d = load(); return { entries: d.entries, logs: d.logs, settings: d.settings, requests: d.requests || [] }; },
   async setStatus(kind, id, status) { const d = load(); const row = d[kind].find(x => x.id === id); if (row) row.status = status; save(d); },
   async setAutoApprove(v) { const d = load(); d.settings.auto_approve_clean = v; save(d); },
   async addCodes(codes) { const d = load(); d.codes = [...new Set([...d.codes, ...codes])]; save(d); },
@@ -79,6 +80,7 @@ const live = {
     }
     await api('/rest/v1/entries', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
   },
+  async requestBook(email) { await api('/rest/v1/book_requests', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ email }) }); },
   async feed(flows) { return api(`/rest/v1/entries?select=id,flow,text,input_mode,audio_url,created_at&status=eq.approved&flow=in.(${flows.join(',')})&order=created_at.desc&limit=200`); },
   async tally() { return rpc('kindness_tally'); },
   async checkCode(code) { return rpc('check_book_code', { p_code: code }); },
@@ -93,8 +95,8 @@ const live = {
     return true;
   },
   async adminAll() {
-    const [entries, logs, s] = await Promise.all([api('/rest/v1/entries?select=*&order=created_at.desc'), api('/rest/v1/book_logs?select=*&order=created_at.desc'), api('/rest/v1/settings?select=*&id=eq.1')]);
-    return { entries, logs, settings: s[0] || { auto_approve_clean: true } };
+    const [entries, logs, s, requests] = await Promise.all([api('/rest/v1/entries?select=*&order=created_at.desc'), api('/rest/v1/book_logs?select=*&order=created_at.desc'), api('/rest/v1/settings?select=*&id=eq.1'), api('/rest/v1/book_requests?select=email,created_at&order=created_at.desc').catch(() => [])]);
+    return { entries, logs, settings: s[0] || { auto_approve_clean: true }, requests };
   },
   async setStatus(kind, id, status) { await api(`/rest/v1/${kind === 'logs' ? 'book_logs' : 'entries'}?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status }) }); },
   async setAutoApprove(v) { await api('/rest/v1/settings?id=eq.1', { method: 'PATCH', body: JSON.stringify({ auto_approve_clean: v }) }); },
