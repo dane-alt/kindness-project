@@ -9,5 +9,6 @@ export const CONFIG = {
   // false = every entry waits for admin review
   AUTO_APPROVE_CLEAN: true,
   SITE_URL: 'https://dane-alt.github.io/kindness-project/',
+  BOOK_PDF_URL: '',          // link to the free PDF of the book, once it is uploaded
 };
 export const isDemo = () => !CONFIG.SUPABASE_URL || !CONFIG.SUPABASE_ANON_KEY;

@@ -84,3 +84,21 @@ BASE_URL=https://dane-alt.github.io/kindness-project/ npm run e2e   # same tests
 ## Free-tier notes
 
 Supabase free projects pause after about a week with no activity; visiting the site, or a free uptime pinger, keeps it awake, and a paused project can be resumed from the dashboard. Free storage is 1 GB (roughly 15,000 one-minute voice notes).
+
+## Rebrand (Oct 30, 2026): stories, research, AI moderator
+
+- New pages: **Stories** (`#/stories`, 24 true stories from the book, filter by stage) and **Research** (`#/research`, 20 research-backed kind acts). Content lives in `js/content.js`.
+- New logo `img/logo.svg`, link-preview image `img/og.png`, phone icon `img/icon-180.png`.
+- Main QR for everything: `qr/kindness-project-qr.svg/.png` points to the site root. Share image `qr/kindness-project-share.png` (1080x1350) and print card `qr/kindness-project-card-4x6.png` (300 dpi). Regenerate with `node scripts/make-brand.mjs`. Old `?f=1` / `?f=2` codes keep working.
+
+## AI moderator ("Is this conducive to kindness?"), runs in the cloud
+
+Every new post goes to the Edge Function `supabase/functions/moderate`, which asks Claude:
+**kind** -> approved within seconds; **doubt** -> stays pending and Dane gets an email with the post and a link to Admin; **abusive** -> rejected and never shown. Obvious slurs are rejected by the database before the AI is asked. If the AI can't be reached, the post is treated as doubt (emailed, not published).
+
+Setup, after `001_init.sql`:
+1. SQL Editor: run `supabase/migrations/002_ai_moderation.sql`.
+2. Deploy the function: `supabase functions deploy moderate --no-verify-jwt` (or Dashboard > Edge Functions > Deploy a new function > name `moderate`, paste `index.ts`, turn off "Verify JWT").
+3. Edge Functions > Secrets: `ANTHROPIC_API_KEY` (console.anthropic.com > API keys), `RESEND_API_KEY` (resend.com, free; sign up with dane@mysticallandscapes.com so mail to Dane is allowed from `onboarding@resend.dev`), `KP_WEBHOOK_SECRET` (any long random string).
+4. SQL Editor: `update kp_private set value='https://<project-ref>.supabase.co/functions/v1/moderate' where key='moderator_url'; update kp_private set value='<same KP_WEBHOOK_SECRET>' where key='moderator_secret';`
+5. Test: post a kind story (appears within seconds), a doubtful one such as "my neighbour John Smith at 12 Elm St helped me" (email to Dane), and an abusive one (never appears).

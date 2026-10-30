@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build site folder (static files only)
-        run: mkdir _site && cp -r index.html css js qr _site/ && touch _site/.nojekyll
+        run: mkdir _site && cp -r index.html css js qr img _site/ && touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
