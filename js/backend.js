@@ -1,7 +1,7 @@
 // Backend adapter. Demo mode = localStorage mock. Live mode = Supabase REST (no SDK, keeps the page light).
-import { CONFIG, isDemo } from './config.js?v=5';
-import { moderate, decideStatus } from './moderation.js?v=5';
-import { isValidCode } from './codes.js?v=5';
+import { CONFIG, isDemo } from './config.js?v=6';
+import { moderate, decideStatus } from './moderation.js?v=6';
+import { isValidCode } from './codes.js?v=6';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
 
@@ -73,6 +73,14 @@ async function uploadAudio(blob) {
   if (!r.ok) throw new Error('audio upload failed');
   return `${CONFIG.SUPABASE_URL}/storage/v1/object/public/${CONFIG.AUDIO_BUCKET}/${path}`;
 }
+// A copy of every story and book request goes to Dane's inbox, where the hourly check reads it.
+function mailCopy(subject, fields) {
+  try {
+    fetch('https://formsubmit.co/ajax/daneeaster@gmail.com', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(Object.assign({ _subject: subject, _template: 'box', _captcha: 'false' }, fields)) }).catch(() => {});
+  } catch (e) {}
+}
+
 const live = {
   async submit(items) {
     const rows = [];
@@ -80,9 +88,10 @@ const live = {
       const m = moderate(it.text || ''); // client pre-filter; the database trigger re-checks and sets status
       rows.push({ flow: it.flow, text: m.text, input_mode: it.input_mode, audio_url: await uploadAudio(it.audio_blob), consent: !!it.consent });
     }
+    for (const r of rows) mailCopy('Kindness Project story (' + r.flow + ')', { question: r.flow, story: r.text || '(voice only)', voice_recording: r.audio_url || 'none', permission_to_share: r.consent ? 'yes' : 'no' });
     await api('/rest/v1/entries', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows) });
   },
-  async requestBook(email) { await api('/rest/v1/book_requests', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ email }) }); },
+  async requestBook(email) { mailCopy('Kindness Project book request', { book_request_email: email }); await api('/rest/v1/book_requests', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ email }) }); },
   async feed(flows) { return api(`/rest/v1/entries?select=id,flow,text,input_mode,audio_url,created_at&status=eq.approved&flow=in.(${flows.join(',')})&order=created_at.desc&limit=200`); },
   async tally() { return rpc('kindness_tally'); },
   async checkCode(code) { return rpc('check_book_code', { p_code: code }); },
