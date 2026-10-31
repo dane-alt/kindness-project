@@ -1,7 +1,7 @@
 // Backend adapter. Demo mode = localStorage mock. Live mode = Supabase REST (no SDK, keeps the page light).
-import { CONFIG, isDemo } from './config.js?v=6';
-import { moderate, decideStatus } from './moderation.js?v=6';
-import { isValidCode } from './codes.js?v=6';
+import { CONFIG, isDemo } from './config.js?v=7';
+import { moderate, decideStatus } from './moderation.js?v=7';
+import { isValidCode } from './codes.js?v=7';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
 
@@ -76,7 +76,7 @@ async function uploadAudio(blob) {
 // A copy of every story and book request goes to Dane's inbox, where the hourly check reads it.
 function mailCopy(subject, fields) {
   try {
-    fetch('https://formsubmit.co/ajax/daneeaster@gmail.com', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    fetch('https://formsubmit.co/ajax/003916cbaf3abcdaa090d70ca4f64f6f', { method: 'POST', referrerPolicy: 'strict-origin-when-cross-origin', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify(Object.assign({ _subject: subject, _template: 'box', _captcha: 'false' }, fields)) }).catch(() => {});
   } catch (e) {}
 }

@@ -1,9 +1,9 @@
-import { CONFIG, isDemo } from './config.js?v=6';
-import { backend, blobToDataURL } from './backend.js?v=6';
-import { Recorder, canRecord, canTranscribe } from './recorder.js?v=6';
-import { normalizeCode, isValidCode, generateCodes } from './codes.js?v=6';
-import { toCSV, toJSON } from './export.js?v=6';
-import { STORIES, RESEARCH } from './content.js?v=6';
+import { CONFIG, isDemo } from './config.js?v=7';
+import { backend, blobToDataURL } from './backend.js?v=7';
+import { Recorder, canRecord, canTranscribe } from './recorder.js?v=7';
+import { normalizeCode, isValidCode, generateCodes } from './codes.js?v=7';
+import { toCSV, toJSON } from './export.js?v=7';
+import { STORIES, RESEARCH } from './content.js?v=7';
 
 const $ = (s, r = document) => r.querySelector(s);
 const main = $('#main');
