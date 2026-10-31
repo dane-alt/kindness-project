@@ -1,7 +1,7 @@
 // Backend adapter. Demo mode = localStorage mock. Live mode = Supabase REST (no SDK, keeps the page light).
-import { CONFIG, isDemo } from './config.js?v=4';
-import { moderate, decideStatus } from './moderation.js?v=4';
-import { isValidCode } from './codes.js?v=4';
+import { CONFIG, isDemo } from './config.js?v=5';
+import { moderate, decideStatus } from './moderation.js?v=5';
+import { isValidCode } from './codes.js?v=5';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
 
@@ -24,6 +24,8 @@ const load = () => { try { return JSON.parse(localStorage.getItem(LS)) || seed()
 const save = d => localStorage.setItem(LS, JSON.stringify(d));
 
 const demo = {
+  async sendLink() { throw new Error('Demo mode: use password demo'); },
+  async useToken() { return true; },
   async submit(items) {
     const d = load();
     for (const it of items) {
@@ -88,6 +90,16 @@ const live = {
     await api('/rest/v1/book_logs', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ code, place: moderate(place).text, story: moderate(story).text, consent: !!consent }) });
   },
   async bookTrail(code) { return api(`/rest/v1/book_logs?select=place,story,created_at&code=eq.${encodeURIComponent(code)}&status=eq.approved&order=created_at.asc`); },
+  async sendLink(email) {
+    const back = (CONFIG.SITE_URL || location.href.split('#')[0]);
+    const r = await fetch(CONFIG.SUPABASE_URL + '/auth/v1/otp?redirect_to=' + encodeURIComponent(back), { method: 'POST', headers: { apikey: CONFIG.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, create_user: true }) });
+    if (!r.ok) throw new Error('Could not send the link: ' + (await r.text()));
+  },
+  async useToken(t) {
+    token = t;
+    if (!(await rpc('is_admin'))) { token = null; throw new Error('This email is not an admin'); }
+    return true;
+  },
   async login(email, password) {
     const r = await fetch(CONFIG.SUPABASE_URL + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: CONFIG.SUPABASE_ANON_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
     if (!r.ok) throw new Error('Login failed'); token = (await r.json()).access_token;

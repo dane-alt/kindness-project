@@ -1,9 +1,9 @@
-import { CONFIG, isDemo } from './config.js?v=4';
-import { backend, blobToDataURL } from './backend.js?v=4';
-import { Recorder, canRecord, canTranscribe } from './recorder.js?v=4';
-import { normalizeCode, isValidCode, generateCodes } from './codes.js?v=4';
-import { toCSV, toJSON } from './export.js?v=4';
-import { STORIES, RESEARCH } from './content.js?v=4';
+import { CONFIG, isDemo } from './config.js?v=5';
+import { backend, blobToDataURL } from './backend.js?v=5';
+import { Recorder, canRecord, canTranscribe } from './recorder.js?v=5';
+import { normalizeCode, isValidCode, generateCodes } from './codes.js?v=5';
+import { toCSV, toJSON } from './export.js?v=5';
+import { STORIES, RESEARCH } from './content.js?v=5';
 
 const $ = (s, r = document) => r.querySelector(s);
 const main = $('#main');
@@ -302,10 +302,10 @@ let adminOk = false;
 function download(name, text, type) { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name; document.body.appendChild(a); a.click(); a.remove(); }
 async function admin() {
   if (!adminOk) {
-    view(`<h1>Admin</h1>${isDemo() ? '<p class="hint">Demo mode: any email, password <code>demo</code>.</p>' : ''}
-    <form id="f" novalidate><label for="em">Email</label><input type="email" id="em" autocomplete="username"><label for="pw">Password</label><input type="password" id="pw" autocomplete="current-password">
-    <p class="err" id="msg" role="alert"></p><div class="row"><button class="btn" type="submit">Sign in</button></div></form>`, 'Admin');
-    $('#f').onsubmit = async e => { e.preventDefault(); try { await backend.login($('#em').value, $('#pw').value); adminOk = true; admin(); } catch (err) { $('#msg').textContent = err.message; } };
+    view(`<div class="journey"><h1>Admin</h1>
+    <form id="lf" novalidate><input type="email" id="lem" autocomplete="username" aria-label="Your admin email" placeholder="Your admin email">
+    <p class="err" id="lmsg" role="alert"></p><div class="row"><button class="btn" type="submit">Email me a sign-in link</button></div></form></div>`, 'Admin');
+    $('#lf').onsubmit = async e => { e.preventDefault(); try { await backend.sendLink($('#lem').value.trim()); $('#lf').outerHTML = '<p class="done">Check your email and tap the sign-in link on this device.</p>'; } catch (err) { $('#lmsg').textContent = err.message; } };
     return;
   }
   const d = await backend.adminAll();
@@ -336,6 +336,11 @@ async function admin() {
 
 // ---------- router ----------
 async function route() {
+  if (location.hash.includes('access_token=')) {
+    const t = new URLSearchParams(location.hash.slice(1)).get('access_token');
+    history.replaceState(null, '', location.pathname + '#admin');
+    try { await backend.useToken(t); adminOk = true; } catch (e) { alert(e.message); }
+  }
   const h = location.hash.replace(/^#\/?/, '');
   const [p, arg] = h.split('/');
   // query-string aliases so printed QR codes stay short and robust: ?f=1, ?f=2, ?code=KB-XXXX
