@@ -2,8 +2,8 @@
 // DEMO MODE: leave SUPABASE_URL empty. Everything is stored only in this browser (localStorage).
 // LIVE MODE: paste your Supabase project URL and anon (public) key below, commit, push.
 export const CONFIG = {
-  SUPABASE_URL: '',          // e.g. 'https://abcdxyz.supabase.co'
-  SUPABASE_ANON_KEY: '',     // the "anon public" key from Supabase > Project Settings > API
+  SUPABASE_URL: 'https://tlsaqswtiguucoyloktm.supabase.co',          // e.g. 'https://abcdxyz.supabase.co'
+  SUPABASE_ANON_KEY: 'sb_publishable_rYwhMU-cd2uLhgvy5bqJCg_q9aJ6at6',     // the "anon public" key from Supabase > Project Settings > API
   AUDIO_BUCKET: 'audio',
   // true  = clean entries go public at once, flagged ones wait for review (default)
   // false = every entry waits for admin review

@@ -1,7 +1,7 @@
 // Backend adapter. Demo mode = localStorage mock. Live mode = Supabase REST (no SDK, keeps the page light).
-import { CONFIG, isDemo } from './config.js';
-import { moderate, decideStatus } from './moderation.js';
-import { isValidCode } from './codes.js';
+import { CONFIG, isDemo } from './config.js?v=4';
+import { moderate, decideStatus } from './moderation.js?v=4';
+import { isValidCode } from './codes.js?v=4';
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now() + '-' + Math.random().toString(16).slice(2));
 
